@@ -1,72 +1,84 @@
-# Telegram OIDC Auth Test
+# Telegram Bot Webhook Login Test
 
-A dark, RTL-first Next.js App Router application using Telegram's OpenID Connect Authorization Code Flow. After authentication, it opens a dummy registration form at 30% completion with a success dialog. It does not use a database or submit the form to a server.
+A dark, RTL-first Next.js App Router application that uses a Telegram bot deep link, webhook updates, inline confirmation buttons, and a dummy registration form. It does not use OIDC, the Telegram Login Widget, or a database.
 
 ## Stack
 
-- Next.js App Router and React
-- Tailwind CSS v4
+- Next.js App Router, React, TypeScript, and Tailwind CSS
 - Shadcn UI
-- OIDC Authorization Code Flow with PKCE (`S256`)
-- `jose` signature verification and encrypted JWT cookies
+- Telegram Bot API over native `fetch`
+- Short-lived HttpOnly browser cookie
 - Vercel-ready Node.js Route Handlers
+
+## Flow
+
+1. The landing-page button generates a cryptographically random token with Web Crypto.
+2. `POST /api/auth/telegram` stores that token in a 10-minute HttpOnly, SameSite cookie.
+3. The browser opens `https://t.me/<BOT_USERNAME>?start=<TOKEN>` in a new tab.
+4. Telegram sends the `/start` update to `/api/telegram/webhook`.
+5. The webhook replies with **Confirm Login** and **Decline** inline buttons whose `callback_data` contains the token.
+6. Confirming edits the Telegram message and sends a link to `/register?token=...&status=success&name=...&photo=...`.
+7. `/register` accepts the profile only when the URL token matches the initiating browser cookie.
+8. The dummy form prints its data to the browser console and opens a success dialog. Nothing is submitted or persisted.
 
 ## Telegram setup
 
-1. Create or choose a bot in [@BotFather](https://t.me/botfather).
-2. Open **Bot Settings → Web Login**.
-3. Add the exact callback URL as an allowed URL:
-
-```text
-https://your-domain.example/api/auth/callback/telegram
-```
-
-4. If using Telegram's Web Login tooling elsewhere, also add the website origin. Allowed URLs and the Client ID/Secret are provided in the same BotFather section.
-5. Save the **Client ID** and **Client Secret** securely. The Client Secret is not a BotFather bot token.
-
-Telegram's OIDC documentation is available at [core.telegram.org/bots/telegram-login](https://core.telegram.org/bots/telegram-login).
-
-## Local setup
-
-1. Copy the environment template:
+1. Create a bot with [@BotFather](https://t.me/botfather).
+2. Copy the bot token and username.
+3. Copy the environment template:
 
 ```bash
 cp .env.example .env.local
 ```
 
-2. Configure the values:
+4. Configure the server:
 
 ```dotenv
-TELEGRAM_CLIENT_ID=123456789
-TELEGRAM_CLIENT_SECRET=your_client_secret
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+TELEGRAM_BOT_TOKEN=123456789:your_bot_token
+TELEGRAM_BOT_USERNAME=your_bot_username
+TELEGRAM_WEBHOOK_SECRET=<WEBHOOK_SECRET>
+NEXT_PUBLIC_APP_URL=https://your-public-domain.example
 ```
 
-3. Add the matching local callback to BotFather when the provider accepts local development URLs:
+Generate a webhook secret with a cryptographically secure password manager or command-line utility. Use the same value in the environment and Telegram's `secret_token` parameter. Allowed characters are `A-Z`, `a-z`, `0-9`, `_`, and `-`.
+
+`NEXT_PUBLIC_APP_URL` must match the origin serving the landing page. Telegram cannot deliver webhooks to an ordinary localhost server, so local testing requires an HTTPS tunnel and its public URL.
+
+## Register the webhook from a browser
+
+After deploying the app, open this URL in a private browser window:
 
 ```text
-http://localhost:3000/api/auth/callback/telegram
+https://api.telegram.org/bot<BOT_TOKEN>/setWebhook?url=https%3A%2F%2Fyour-public-domain.example%2Fapi%2Ftelegram%2Fwebhook&secret_token=<WEBHOOK_SECRET>&allowed_updates=%5B%22message%22%2C%22callback_query%22%5D
 ```
 
-4. Install and run:
+A successful browser response contains `"ok":true`. The registered HTTPS URL must point to:
+
+```text
+https://your-public-domain.example/api/telegram/webhook
+```
+
+Opening `setWebhook` in a browser exposes the bot token to browser history and extensions, so a trusted terminal is safer. If a browser is required, use a private window, close it immediately, and clear its history afterward.
+
+A safer terminal equivalent is:
+
+```bash
+curl --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
+  --data-urlencode "url=${NEXT_PUBLIC_APP_URL}/api/telegram/webhook" \
+  --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}" \
+  --data-urlencode 'allowed_updates=["message","callback_query"]'
+```
+
+Telegram sends the configured secret in the `X-Telegram-Bot-Api-Secret-Token` request header. The webhook rejects requests without a constant-time matching value.
+
+## Run locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. Restart the development server after changing environment variables.
-
-## Authentication flow
-
-1. The browser opens `GET /api/auth/telegram` through a normal server-backed form.
-2. The server generates `state`, `nonce`, and a PKCE verifier/challenge, then stores the transaction in a 10-minute encrypted HttpOnly cookie.
-3. Telegram receives the authorization request with `scope=openid profile phone` and redirects back to `/api/auth/callback/telegram`.
-4. The callback validates `state`, exchanges the code server-side with HTTP Basic client authentication, and verifies the ID token through Telegram's JWKS, issuer, audience, timestamps, and `nonce`.
-5. The verified profile is stored in a 15-minute encrypted HttpOnly cookie and the browser is redirected to `/register`.
-6. The server decrypts and validates the profile before rendering the dummy form. The form is not submitted or persisted.
-
-Cookie encryption and PKCE transaction storage avoid a database for this test. The profile cookie is an HttpOnly, SameSite cookie; `Secure` is enabled in production. The verified profile is limited to the test flow and is not a complete production session or authorization system.
+Open the same `NEXT_PUBLIC_APP_URL` origin configured in `.env.local`. Restart the development server after changing environment variables.
 
 ## Commands
 
@@ -78,27 +90,17 @@ npm run build
 npm run start
 ```
 
-## Deploy to Vercel
-
-Set these variables under **Project Settings → Environment Variables** for the Production environment:
-
-```text
-TELEGRAM_CLIENT_ID
-TELEGRAM_CLIENT_SECRET
-NEXT_PUBLIC_APP_URL
-```
-
-`NEXT_PUBLIC_APP_URL` must be the deployed HTTPS origin. Register its exact callback with BotFather before testing:
-
-```text
-https://your-domain.example/api/auth/callback/telegram
-```
-
-Keep `TELEGRAM_CLIENT_SECRET` server-only. It is read by the Node.js Route Handlers to exchange the authorization code and derive the encrypted-cookie key.
-
 ## Routes
 
-- `/` — RTL split-screen Telegram login
-- `/register` — server-validated dummy registration form and success dialog
-- `/api/auth/telegram` — OIDC authorization start route
-- `/api/auth/callback/telegram` — code exchange, ID-token verification, and profile-cookie creation
+- `/` — login button and Telegram return instructions
+- `/api/auth/telegram` — creates the short-lived login-token cookie; its old OIDC behavior is disabled
+- `/api/telegram/webhook` — handles `/start` and inline callback queries
+- `/api/auth/callback/telegram` — disabled legacy OIDC endpoint
+- `/register` — token-matched Telegram profile and dummy registration form
+
+## Demo limitations
+
+- The registration URL contains the token, name, and optional photo as required by this flow. URLs can be stored in browser history, proxy logs, analytics, and chat metadata.
+- The standard Telegram Bot API `User` object does not normally include `photo_url`. The webhook accepts it when present and otherwise displays the user's initials.
+- The browser-cookie match prevents casually opening somebody else's completion URL, but it is not a durable or fully server-verified production session. Use a short-lived signed server proof or a pending-login store for production authentication.
+- Never log the bot token, webhook secret, or callback payload in production.

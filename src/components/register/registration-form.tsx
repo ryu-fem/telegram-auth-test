@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
-import type { TelegramProfile } from "@/lib/telegram"
+import type { TelegramLoginProfile } from "@/lib/telegram"
 
 type RegistrationData = {
   firstName: string
@@ -40,7 +40,7 @@ type RegistrationData = {
 }
 
 type RegistrationFormProps = {
-  profile: TelegramProfile
+  profile: TelegramLoginProfile | null
 }
 
 const INITIAL_FORM_DATA: RegistrationData = {
@@ -63,10 +63,9 @@ function getInitials(name: string) {
 export function RegistrationForm({ profile }: RegistrationFormProps) {
   const router = useRouter()
   const [isSuccessOpen, setIsSuccessOpen] = useState(false)
-  const [formData, setFormData] = useState<RegistrationData>({
-    ...INITIAL_FORM_DATA,
-    phone: profile.phoneNumber ?? "",
-  })
+  const [formData, setFormData] = useState<RegistrationData>(
+    INITIAL_FORM_DATA
+  )
 
   function updateField<Key extends keyof RegistrationData>(
     field: Key,
@@ -77,7 +76,37 @@ export function RegistrationForm({ profile }: RegistrationFormProps) {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    console.log("[Registration test only]", formData)
     setIsSuccessOpen(true)
+  }
+
+  if (!profile) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#050d0a] px-6 py-12">
+        <Card className="w-full max-w-md items-center gap-5 rounded-[2rem] border-white/10 bg-[#081711]/90 p-8 text-center shadow-2xl shadow-black/30">
+          <div className="grid size-16 place-items-center rounded-2xl border border-amber-300/15 bg-amber-300/10 text-amber-200">
+            <LockKeyhole className="size-7" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-white">
+              جلسة Telegram غير صالحة
+            </h1>
+            <p className="text-sm leading-7 text-emerald-50/50">
+              افتح رابط تسجيل الدخول من هذه الصفحة، ثم أكّد الدخول داخل Telegram
+              قبل فتح صفحة التسجيل.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={() => router.push("/")}
+            className="h-12 w-full rounded-xl bg-[#2AABEE] font-bold text-[#061923] hover:bg-[#42b9f2]"
+          >
+            <TelegramIcon className="size-5" />
+            العودة إلى تسجيل الدخول
+          </Button>
+        </Card>
+      </main>
+    )
   }
 
   const displayName = profile.name
@@ -128,7 +157,7 @@ export function RegistrationForm({ profile }: RegistrationFormProps) {
               <div className="relative flex h-full flex-col">
                 <div className="mb-7 flex items-center gap-2 text-xs font-semibold text-emerald-200">
                   <ShieldCheck className="size-4" />
-                  هوية Telegram محققة
+                  تم تأكيد الدخول عبر Telegram
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -149,13 +178,11 @@ export function RegistrationForm({ profile }: RegistrationFormProps) {
                       {displayName}
                     </h2>
                     <p className="mt-1 truncate text-sm text-emerald-100/45" dir="ltr">
-                      {profile.username
-                        ? `@${profile.username}`
-                        : `ID ${profile.id}`}
+                      Telegram Web Login
                     </p>
                     <Badge className="mt-3 h-6 bg-emerald-400/12 px-2.5 text-[11px] text-emerald-200">
                       <CheckCircle2 className="size-3" />
-                      تم التحقق
+                      تم التأكيد
                     </Badge>
                   </div>
                 </div>
@@ -168,8 +195,8 @@ export function RegistrationForm({ profile }: RegistrationFormProps) {
                       <Fingerprint className="size-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-white">مصدر موثوق</p>
-                      <p className="mt-0.5 text-xs text-emerald-50/40">Telegram OpenID Connect</p>
+                        <p className="text-sm font-semibold text-white">مسار التأكيد</p>
+                      <p className="mt-0.5 text-xs text-emerald-50/40">Telegram Bot Webhook</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.035] p-4">
@@ -363,7 +390,7 @@ export function RegistrationForm({ profile }: RegistrationFormProps) {
                 تم التسجيل بنجاح! (تجربة فقط)
               </DialogTitle>
               <DialogDescription className="mx-auto mt-3 max-w-xs leading-7 text-emerald-50/50">
-                تمت عملية التسجيل التجريبية فقط، ولم يتم حفظ أي بيانات.
+                تمت عملية التسجيل التجريبية فقط، وتم طباعة البيانات في Console.
               </DialogDescription>
             </DialogHeader>
             <Button
