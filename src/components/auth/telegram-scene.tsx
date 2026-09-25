@@ -49,7 +49,7 @@ export function TelegramScene() {
           </div>
 
           <div className="animate-float-fast absolute right-[2%] top-[42%] hidden rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1.5 text-xs font-medium text-sky-200 backdrop-blur-lg sm:block">
-            Hash verified
+            ID token verified
           </div>
 
           <div className="relative grid size-40 place-items-center rounded-full bg-[radial-gradient(circle_at_30%_24%,#a5f3fc_0%,#38bdf8_18%,#0ea5e9_44%,#0369a1_69%,#052e49_100%)] shadow-[inset_-24px_-28px_50px_rgba(2,20,35,0.62),inset_18px_20px_38px_rgba(224,247,255,0.42),0_38px_80px_rgba(14,165,233,0.3)] ring-1 ring-white/35 sm:size-52">
@@ -62,13 +62,13 @@ export function TelegramScene() {
         <div className="mt-9 grid w-full max-w-lg grid-cols-2 gap-3">
           <div className="rounded-2xl border border-white/8 bg-white/[0.045] p-4 backdrop-blur-xl">
             <ShieldCheck className="mb-3 size-5 text-emerald-300" />
-            <p className="text-sm font-semibold text-white">تحقق تشفيري</p>
-            <p className="mt-1 text-xs leading-5 text-emerald-100/50">HMAC-SHA256</p>
+            <p className="text-sm font-semibold text-white">تحقق معياري</p>
+            <p className="mt-1 text-xs leading-5 text-emerald-100/50">OIDC + PKCE</p>
           </div>
           <div className="rounded-2xl border border-white/8 bg-white/[0.045] p-4 backdrop-blur-xl">
             <Fingerprint className="mb-3 size-5 text-sky-300" />
-            <p className="text-sm font-semibold text-white">بيانات minimized</p>
-            <p className="mt-1 text-xs leading-5 text-emerald-100/50">No database</p>
+            <p className="text-sm font-semibold text-white">رمز موقّع</p>
+            <p className="mt-1 text-xs leading-5 text-emerald-100/50">JWT signature verified</p>
           </div>
         </div>
       </div>

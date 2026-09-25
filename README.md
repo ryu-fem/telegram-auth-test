@@ -1,53 +1,72 @@
-# Telegram OAuth Test
+# Telegram OIDC Auth Test
 
-A dark, RTL-first Next.js App Router application that verifies Telegram Login data and opens a dummy registration form. It does not use a database or send registration data to a server.
+A dark, RTL-first Next.js App Router application using Telegram's OpenID Connect Authorization Code Flow. After authentication, it opens a dummy registration form at 30% completion with a success dialog. It does not use a database or submit the form to a server.
 
 ## Stack
 
 - Next.js App Router and React
 - Tailwind CSS v4
 - Shadcn UI
-- Node.js `crypto` HMAC-SHA256 verification
-- Vercel-ready serverless Route Handler
+- OIDC Authorization Code Flow with PKCE (`S256`)
+- `jose` signature verification and encrypted JWT cookies
+- Vercel-ready Node.js Route Handlers
+
+## Telegram setup
+
+1. Create or choose a bot in [@BotFather](https://t.me/botfather).
+2. Open **Bot Settings → Web Login**.
+3. Add the exact callback URL as an allowed URL:
+
+```text
+https://your-domain.example/api/auth/callback/telegram
+```
+
+4. If using Telegram's Web Login tooling elsewhere, also add the website origin. Allowed URLs and the Client ID/Secret are provided in the same BotFather section.
+5. Save the **Client ID** and **Client Secret** securely. The Client Secret is not a BotFather bot token.
+
+Telegram's OIDC documentation is available at [core.telegram.org/bots/telegram-login](https://core.telegram.org/bots/telegram-login).
 
 ## Local setup
 
-1. Create a bot with [@BotFather](https://t.me/botfather).
-2. Send `/setdomain` to BotFather and register the exact public origin used by the app. Plain `localhost` can be rejected; for local widget testing, use an HTTPS tunnel and register its public URL.
-3. Copy the environment template:
+1. Copy the environment template:
 
 ```bash
 cp .env.example .env.local
 ```
 
-4. Set the bot token and its numeric ID. The numeric ID is the part before `:` in the bot token:
+2. Configure the values:
 
 ```dotenv
-TELEGRAM_BOT_TOKEN=123456789:your_secret_token
-NEXT_PUBLIC_TELEGRAM_BOT_ID=123456789
+TELEGRAM_CLIENT_ID=123456789
+TELEGRAM_CLIENT_SECRET=your_client_secret
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-5. Install and run:
+3. Add the matching local callback to BotFather when the provider accepts local development URLs:
+
+```text
+http://localhost:3000/api/auth/callback/telegram
+```
+
+4. Install and run:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. Restart the dev server after changing a `NEXT_PUBLIC_` variable.
+Open `http://localhost:3000`. Restart the development server after changing environment variables.
 
-## Verification
+## Authentication flow
 
-The client posts the widget payload to `POST /api/auth/telegram`. The Node.js Route Handler:
+1. The browser opens `GET /api/auth/telegram` through a normal server-backed form.
+2. The server generates `state`, `nonce`, and a PKCE verifier/challenge, then stores the transaction in a 10-minute encrypted HttpOnly cookie.
+3. Telegram receives the authorization request with `scope=openid profile phone` and redirects back to `/api/auth/callback/telegram`.
+4. The callback validates `state`, exchanges the code server-side with HTTP Basic client authentication, and verifies the ID token through Telegram's JWKS, issuer, audience, timestamps, and `nonce`.
+5. The verified profile is stored in a 15-minute encrypted HttpOnly cookie and the browser is redirected to `/register`.
+6. The server decrypts and validates the profile before rendering the dummy form. The form is not submitted or persisted.
 
-1. Allows only Telegram's documented login fields.
-2. Rejects oversized, malformed, or cross-origin requests.
-3. Rebuilds the sorted `data-check-string`.
-4. Calculates `HMAC-SHA256(dataCheckString, SHA256(botToken))`.
-5. Compares the result with the supplied hash using `timingSafeEqual`.
-6. Rejects authentication data older than 24 hours.
-
-Only the sanitized profile is returned. The hash and bot token never reach `sessionStorage`. Because this test intentionally creates no server session or database, the browser profile is for display only and is not production-grade authorization.
+Cookie encryption and PKCE transaction storage avoid a database for this test. The profile cookie is an HttpOnly, SameSite cookie; `Secure` is enabled in production. The verified profile is limited to the test flow and is not a complete production session or authorization system.
 
 ## Commands
 
@@ -61,27 +80,25 @@ npm run start
 
 ## Deploy to Vercel
 
-Run these commands from the project directory:
+Set these variables under **Project Settings → Environment Variables** for the Production environment:
 
-```bash
-npx vercel
-npx vercel env add TELEGRAM_BOT_TOKEN production
-npx vercel env add NEXT_PUBLIC_TELEGRAM_BOT_ID production
-npx vercel --prod
+```text
+TELEGRAM_CLIENT_ID
+TELEGRAM_CLIENT_SECRET
+NEXT_PUBLIC_APP_URL
 ```
 
-Vercel prompts for each secret value. Alternatively, add both variables under **Project Settings → Environment Variables** for the Production environment. `TELEGRAM_BOT_TOKEN` must stay server-only and must not use a `NEXT_PUBLIC_` prefix.
+`NEXT_PUBLIC_APP_URL` must be the deployed HTTPS origin. Register its exact callback with BotFather before testing:
 
-After the first production deployment:
+```text
+https://your-domain.example/api/auth/callback/telegram
+```
 
-1. Copy the production URL, such as `https://telegram-auth-test.vercel.app`.
-2. Send `/setdomain` to [@BotFather](https://t.me/botfather) and register that exact origin.
-3. Redeploy if Telegram or the environment variables were changed.
-
-`NEXT_PUBLIC_TELEGRAM_BOT_ID` is embedded in the client bundle at build time, so changing it requires a new production build. The token is read only by the serverless Route Handler.
+Keep `TELEGRAM_CLIENT_SECRET` server-only. It is read by the Node.js Route Handlers to exchange the authorization code and derive the encrypted-cookie key.
 
 ## Routes
 
 - `/` — RTL split-screen Telegram login
-- `/register` — 30% dummy registration form and success dialog
-- `/api/auth/telegram` — serverless Telegram hash verification
+- `/register` — server-validated dummy registration form and success dialog
+- `/api/auth/telegram` — OIDC authorization start route
+- `/api/auth/callback/telegram` — code exchange, ID-token verification, and profile-cookie creation

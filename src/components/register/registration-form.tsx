@@ -1,13 +1,12 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useState, useSyncExternalStore, type FormEvent } from "react"
+import { useState, type FormEvent } from "react"
 import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
   Fingerprint,
-  LoaderCircle,
   LockKeyhole,
   ShieldCheck,
   Sparkles,
@@ -29,11 +28,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
-import {
-  isTelegramProfile,
-  TELEGRAM_PROFILE_STORAGE_KEY,
-  type TelegramProfile,
-} from "@/lib/telegram"
+import type { TelegramProfile } from "@/lib/telegram"
 
 type RegistrationData = {
   firstName: string
@@ -42,6 +37,10 @@ type RegistrationData = {
   phone: string
   parentPhone: string
   studiesInEgypt: boolean
+}
+
+type RegistrationFormProps = {
+  profile: TelegramProfile
 }
 
 const INITIAL_FORM_DATA: RegistrationData = {
@@ -61,46 +60,13 @@ function getInitials(name: string) {
   return `${parts[0]?.[0] ?? "T"}${parts[1]?.[0] ?? ""}`
 }
 
-function subscribeToProfile() {
-  return () => undefined
-}
-
-function getProfileSnapshot(): string | null {
-  try {
-    return window.sessionStorage.getItem(TELEGRAM_PROFILE_STORAGE_KEY)
-  } catch {
-    return null
-  }
-}
-
-function getServerProfileSnapshot(): string {
-  return ""
-}
-
-function parseProfile(value: string | null): TelegramProfile | null {
-  if (value === "" || value === null) {
-    return null
-  }
-
-  try {
-    const parsedProfile: unknown = JSON.parse(value)
-    return isTelegramProfile(parsedProfile) ? parsedProfile : null
-  } catch {
-    return null
-  }
-}
-
-export function RegistrationForm() {
+export function RegistrationForm({ profile }: RegistrationFormProps) {
   const router = useRouter()
-  const profileSnapshot = useSyncExternalStore(
-    subscribeToProfile,
-    getProfileSnapshot,
-    getServerProfileSnapshot
-  )
-  const profile = parseProfile(profileSnapshot)
   const [isSuccessOpen, setIsSuccessOpen] = useState(false)
-  const [formData, setFormData] = useState<RegistrationData>(INITIAL_FORM_DATA)
-  const isLoading = profileSnapshot === ""
+  const [formData, setFormData] = useState<RegistrationData>({
+    ...INITIAL_FORM_DATA,
+    phone: profile.phoneNumber ?? "",
+  })
 
   function updateField<Key extends keyof RegistrationData>(
     field: Key,
@@ -111,50 +77,10 @@ export function RegistrationForm() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    console.log("[Registration test only]", formData)
     setIsSuccessOpen(true)
   }
 
-  if (isLoading) {
-    return (
-      <main className="grid min-h-screen place-items-center bg-[#050d0a] px-6">
-        <div className="flex flex-col items-center gap-4 text-emerald-100/60">
-          <LoaderCircle className="size-8 animate-spin text-emerald-300" />
-          <p className="text-sm">جارٍ استعادة بيانات Telegram...</p>
-        </div>
-      </main>
-    )
-  }
-
-  if (!profile) {
-    return (
-      <main className="grid min-h-screen place-items-center bg-[#050d0a] px-6 py-12">
-        <Card className="w-full max-w-md items-center gap-5 rounded-[2rem] border-white/10 bg-[#081711]/90 p-8 text-center shadow-2xl shadow-black/30">
-          <div className="grid size-16 place-items-center rounded-2xl border border-amber-300/15 bg-amber-300/10 text-amber-200">
-            <LockKeyhole className="size-7" />
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-white">يلزم تسجيل الدخول أولًا</h1>
-            <p className="text-sm leading-7 text-emerald-50/50">
-              لم يتم العثور على ملف Telegram موثّق في جلسة المتصفح الحالية.
-            </p>
-          </div>
-          <Button
-            type="button"
-            onClick={() => router.push("/")}
-            className="h-12 w-full rounded-xl bg-[#2AABEE] font-bold text-[#061923] hover:bg-[#42b9f2]"
-          >
-            <TelegramIcon className="size-5" />
-            العودة إلى تسجيل الدخول
-          </Button>
-        </Card>
-      </main>
-    )
-  }
-
-  const displayName = [profile.firstName, profile.lastName]
-    .filter(Boolean)
-    .join(" ")
+  const displayName = profile.name
 
   return (
     <main
@@ -207,9 +133,9 @@ export function RegistrationForm() {
 
                 <div className="flex items-center gap-4">
                   <Avatar className="size-20 rounded-[1.6rem] border-2 border-emerald-300/25 shadow-[0_16px_40px_rgba(16,185,129,0.18)] sm:size-24">
-                    {profile.photoUrl ? (
+                    {profile.picture ? (
                       <AvatarImage
-                        src={profile.photoUrl}
+                        src={profile.picture}
                         alt={`صورة ${displayName}`}
                         className="rounded-[1.45rem]"
                       />
@@ -243,7 +169,7 @@ export function RegistrationForm() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-white">مصدر موثوق</p>
-                      <p className="mt-0.5 text-xs text-emerald-50/40">Telegram Login Widget</p>
+                      <p className="mt-0.5 text-xs text-emerald-50/40">Telegram OpenID Connect</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.035] p-4">
@@ -437,7 +363,7 @@ export function RegistrationForm() {
                 تم التسجيل بنجاح! (تجربة فقط)
               </DialogTitle>
               <DialogDescription className="mx-auto mt-3 max-w-xs leading-7 text-emerald-50/50">
-                تمت عملية التسجيل التجريبية فقط، وتم طباعة البيانات في Console.
+                تمت عملية التسجيل التجريبية فقط، ولم يتم حفظ أي بيانات.
               </DialogDescription>
             </DialogHeader>
             <Button

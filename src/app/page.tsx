@@ -1,4 +1,10 @@
-import { ArrowLeft, DatabaseZap, LockKeyhole, ShieldCheck } from "lucide-react"
+import {
+  ArrowLeft,
+  CircleAlert,
+  DatabaseZap,
+  LockKeyhole,
+  ShieldCheck,
+} from "lucide-react"
 
 import {
   LoginSecurityNote,
@@ -8,7 +14,17 @@ import { TelegramScene } from "@/components/auth/telegram-scene"
 import { TelegramIcon } from "@/components/telegram-icon"
 import { Badge } from "@/components/ui/badge"
 
-export default function Home() {
+type HomePageProps = {
+  searchParams: Promise<{ auth_error?: string | string[] }>
+}
+
+export default async function Home({ searchParams }: HomePageProps) {
+  const params = await searchParams
+  const authError = Array.isArray(params.auth_error)
+    ? params.auth_error[0]
+    : params.auth_error
+  const authErrorMessage = getAuthErrorMessage(authError)
+
   return (
     <main
       dir="rtl"
@@ -51,6 +67,15 @@ export default function Home() {
 
             <div className="mt-9">
               <TelegramLoginButton />
+              {authErrorMessage ? (
+                <div
+                  role="alert"
+                  className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-rose-300/15 bg-rose-400/10 px-4 py-3 text-sm text-rose-200"
+                >
+                  <CircleAlert className="size-4 shrink-0" />
+                  <span>{authErrorMessage}</span>
+                </div>
+              ) : null}
             </div>
 
             <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs font-medium text-emerald-50/45">
@@ -87,4 +112,25 @@ export default function Home() {
       </div>
     </main>
   )
+}
+
+function getAuthErrorMessage(code?: string) {
+  if (!code) {
+    return null
+  }
+
+  switch (code) {
+    case "configuration":
+      return "إعدادات Telegram OIDC غير مكتملة. راجع متغيرات البيئة."
+    case "access_denied":
+      return "لم تكتمل عملية تسجيل الدخول عبر Telegram."
+    case "invalid_state":
+    case "invalid_nonce":
+      return "انتهت صلاحية طلب الدخول. حاول مرة أخرى."
+    case "session":
+    case "invalid_profile":
+      return "تعذر إنشاء جلسة تجريبية آمنة. حاول مرة أخرى."
+    default:
+      return "تعذر إكمال تسجيل الدخول عبر Telegram. حاول مرة أخرى."
+  }
 }
