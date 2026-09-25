@@ -122,52 +122,10 @@
   position: absolute;
   inset: 13%;
   border-radius: 9999px;
-  background: rgba(52, 211, 153, 0.1);
+  background: rgba(34, 158, 217, 0.12);
   filter: blur(55px);
   content: "";
   pointer-events: none;
-}
-
-.animate-float-slow {
-  animation: float-slow 5.5s ease-in-out infinite;
-}
-
-.animate-float-delayed {
-  animation: float-delayed 6.5s ease-in-out -1.5s infinite;
-}
-
-.animate-float-fast {
-  animation: float-fast 4.5s ease-in-out -0.8s infinite;
-}
-
-@keyframes float-slow {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) rotate(-2deg);
-  }
-  50% {
-    transform: translate3d(0, -14px, 0) rotate(1deg);
-  }
-}
-
-@keyframes float-delayed {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) rotate(2deg);
-  }
-  50% {
-    transform: translate3d(0, 13px, 0) rotate(-1deg);
-  }
-}
-
-@keyframes float-fast {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-  50% {
-    transform: translate3d(-9px, -8px, 0);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

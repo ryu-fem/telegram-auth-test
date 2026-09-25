@@ -4,7 +4,10 @@ import { timingSafeEqual } from "node:crypto"
 import { NextResponse, type NextRequest } from "next/server"
 
 import { readJsonBodyWithLimit } from "@/lib/request-body"
-import { isHttpsImageUrl } from "@/lib/telegram"
+import {
+  isHttpsImageUrl,
+  TELEGRAM_LOGIN_START_PARAM,
+} from "@/lib/telegram"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -208,15 +211,24 @@ async function handleCallbackQuery(callbackQuery: TelegramCallbackQuery) {
 }
 
 function getStartToken(text?: string) {
-  const match = text?.match(/^\/start\s+([A-Za-z0-9_-]{32,56})$/)
-  return match?.[1]
+  return text?.trim() === `/start ${TELEGRAM_LOGIN_START_PARAM}`
+    ? TELEGRAM_LOGIN_START_PARAM
+    : undefined
 }
 
 function getCallbackAction(data?: string) {
-  const match = data?.match(/^(confirm|decline)_([A-Za-z0-9_-]{32,56})$/)
-  return match
-    ? { action: match[1] as "confirm" | "decline", token: match[2] }
-    : null
+  const confirmData = `confirm_${TELEGRAM_LOGIN_START_PARAM}`
+  const declineData = `decline_${TELEGRAM_LOGIN_START_PARAM}`
+
+  if (data === confirmData) {
+    return { action: "confirm" as const, token: TELEGRAM_LOGIN_START_PARAM }
+  }
+
+  if (data === declineData) {
+    return { action: "decline" as const, token: TELEGRAM_LOGIN_START_PARAM }
+  }
+
+  return null
 }
 
 function createRegistrationUrl(

@@ -1,13 +1,9 @@
-import { timingSafeEqual } from "node:crypto"
-
 import type { Metadata } from "next"
-import { cookies } from "next/headers"
 
 import { RegistrationForm } from "@/components/register/registration-form"
 import {
   isHttpsImageUrl,
-  isValidTelegramLoginToken,
-  TELEGRAM_LOGIN_TOKEN_COOKIE,
+  TELEGRAM_LOGIN_START_PARAM,
   type TelegramLoginProfile,
 } from "@/lib/telegram"
 
@@ -24,19 +20,14 @@ type RegisterPageProps = {
 
 export default async function RegisterPage({ searchParams }: RegisterPageProps) {
   const params = await searchParams
-  const cookieStore = await cookies()
-  const token = getParameter(params.token)
-  const cookieToken = cookieStore.get(TELEGRAM_LOGIN_TOKEN_COOKIE)?.value
   const status = getParameter(params.status)
+  const token = getParameter(params.token)
   const name = normalizeName(getParameter(params.name))
   const photo = getParameter(params.photo)
-  const hasValidToken =
-    status === "success" &&
-    isValidTelegramLoginToken(token) &&
-    isValidTelegramLoginToken(cookieToken) &&
-    safeStringEqual(token, cookieToken)
+  const isConfirmedLogin =
+    status === "success" && token === TELEGRAM_LOGIN_START_PARAM
   const profile: TelegramLoginProfile | null =
-    hasValidToken && name
+    isConfirmedLogin && name
       ? {
           name,
           ...(isHttpsImageUrl(photo) ? { picture: photo } : {}),
@@ -60,14 +51,4 @@ function normalizeName(value: string | undefined) {
   return normalizedName.length > 0 && normalizedName.length <= 256
     ? normalizedName
     : null
-}
-
-function safeStringEqual(first: string, second: string) {
-  const firstBuffer = Buffer.from(first, "utf8")
-  const secondBuffer = Buffer.from(second, "utf8")
-
-  return (
-    firstBuffer.length === secondBuffer.length &&
-    timingSafeEqual(firstBuffer, secondBuffer)
-  )
 }
